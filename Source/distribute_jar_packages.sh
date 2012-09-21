@@ -1,7 +1,7 @@
 #!/bin/bash
 # distribute Jar package
 
-OAT_SOURCE=../Source
+OAT_SOURCE=.
 JAR_SOURCE=../JAR_SOURCE
 
 ShowLogOK()

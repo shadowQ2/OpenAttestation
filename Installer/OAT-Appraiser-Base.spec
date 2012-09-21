@@ -29,6 +29,10 @@ of the OAT Appraiser Server Base Install
 %setup -n %{name}
 
 %build
+# download and distribute the JAR_SOURCE to the source tree
+sh download_jar_packages.sh
+sh distribute_jar_packages.sh
+sh build.sh
 
 %install
 # oat-appraiser dirs
