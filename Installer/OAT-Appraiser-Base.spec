@@ -1,3 +1,6 @@
+%define _TOMCAT "/usr/share/tomcat6"
+%define __jar_repack 0
+
 Name: OAT-Appraiser-Base
 Summary: [OAT Crossbow] Host Integrity at Startup Installation of Appraiser Server
 Version: 1.0.0 
@@ -15,15 +18,45 @@ Host Integrity at Startup (OAT) is a project that explores how software and proc
 Summary: The OAT Appraiser Base Install 
 Group: Department of Defense
 #we use mysql for OAT Appraiser, and php is needed for the web portal
-Requires: mysql, mysql-server, php, php-mysql
+BuildRequires: ant, trousers-devel
+Requires: tomcat6, mysql, mysql-server, php, php-mysql
+
 %description OATapp
 The Host Integrity at Startup Installation 
 of the OAT Appraiser Server Base Install
+
 %prep
 %setup -n %{name}
-rm -rf $RPM_BUILD_ROOT
-mkdir $RPM_BUILD_ROOT/
-cp -R $RPM_BUILD_DIR/%{name} $RPM_BUILD_ROOT
+
+%build
+
+%install
+# oat-appraiser dirs
+mkdir -p $RPM_BUILD_ROOT/var/lib/oat-appraiser/CaCerts
+mkdir $RPM_BUILD_ROOT/var/lib/oat-appraiser/ClientFiles
+mkdir $RPM_BUILD_ROOT/var/lib/oat-appraiser/Certificate
+
+# tomcat install dir
+mkdir -p $RPM_BUILD_ROOT/%_TOMCAT/webapps/
+
+# install HisWebServices
+cp -R HisWebServices $RPM_BUILD_ROOT/%_TOMCAT/webapps/
+
+cp -R OpenAttestationAdminConsole/WebContent $RPM_BUILD_ROOT/%_TOMCAT/webapps/OpenAttestationAdminConsole
+cp -R OpenAttestationManifestWebServices/WebContent $RPM_BUILD_ROOT/%_TOMCAT/webapps/OpenAttestationManifestWebServices
+cp -R OpenAttestationWebServices/WebContent $RPM_BUILD_ROOT/%_TOMCAT/webapps/OpenAttestationWebServices
+
+mkdir -p $RPM_BUILD_ROOT/etc/oat-appraiser/
+cp OpenAttestationWebServices/src/OpenAttestation.properties $RPM_BUILD_ROOT/etc/oat-appraiser/OpenAttestationWebServices.properties
+cp OpenAttestationAdminConsole/src/manifest.properties $RPM_BUILD_ROOT/etc/oat-appraiser/manifest.properties
+cp OpenAttestationAdminConsole/src/OpenAttestation.properties $RPM_BUILD_ROOT/etc/oat-appraiser/OpenAttestationAdminConsole.properties
+
+# install HisPrivacyCAWebServices2
+cp -R HisPrivacyCAWebServices2 $RPM_BUILD_ROOT/%_TOMCAT/webapps/HisPrivacyCAWebServices2
+
+#placing OAT web portal in correct folder to be seen by tomcat6
+mkdir -p $RPM_BUILD_ROOT/var/www/html/
+cp -R Portal $RPM_BUILD_ROOT/var/www/html/OAT
 
 %post OATapp
 echo -n "Making OAT Appraiser\n"
@@ -31,41 +64,6 @@ echo -n "Making OAT Appraiser\n"
 #######Install script###########################################################
 
 service mysqld start
-#TOMCAT_INSTALL_DIR=/usr/lib
-#TOMCAT_INSTALL_DIR=$TOMCAT_DIR
-#TOMCAT_DIR_COFNIG_TYPE=${TOMCAT_INSTALL_DIR//\//\\/}
-##TOMCAT_NAME=apache-tomcat-6.0.35
-#TOMCAT_NAME=apache-tomcat-6.0.29
-#echo $TOMCAT_INSTALL_DIR > ~/rpm.log
-#echo $TOMCAT_DIR_COFNIG_TYPE >> ~/rpm.log
-TOMCAT_INSTALL_DIR=/usr/lib
-TOMCAT_NAME=apache-tomcat-6.0.29
-
-if [ -d /var/lib/oat-appraiser ]
-then
-        rm -rf /var/lib/oat-appraiser
-        mkdir /var/lib/oat-appraiser
-        mkdir /var/lib/oat-appraiser/CaCerts
-        mkdir /var/lib/oat-appraiser/ClientFiles
-else
-        mkdir /var/lib/oat-appraiser
-        mkdir /var/lib/oat-appraiser/CaCerts
-        mkdir /var/lib/oat-appraiser/ClientFiles
-fi
-
-if [ $TOMCAT_DIR -a  -d $TOMCAT_DIR ];then
-  if [[ ${TOMCAT_DIR:$((${#TOMCAT_DIR}-1)):1} == / ]];then
-    TOMCAT_DIR_TMP=${TOMCAT_DIR:0:$((${#TOMCAT_DIR}-1))}
-  else
-    TOMCAT_DIR_TMP=$TOMCAT_DIR
-  fi
-
-  TOMCAT_INSTALL_DIR=${TOMCAT_DIR_TMP%/*}
-  TOMCAT_NAME=${TOMCAT_DIR_TMP##*/}
-fi
-TOMCAT_DIR_COFNIG_TYPE=${TOMCAT_INSTALL_DIR//\//\\/}
-echo $TOMCAT_INSTALL_DIR > ~/rpm.log
-echo $TOMCAT_DIR_COFNIG_TYPE >> ~/rpm.log
 
 ###Random generation /dev/urandom is good but just in case...
 # Creating randoms for the p12 files and setting up truststore and keystore
@@ -119,30 +117,7 @@ service mysqld stop
 
 #sed -i 's/--datadir="$datadir" --socket="$socketfile"/--datadir="$datadir" --skip-grant-tables --socket="$socketfile"/g' /etc/rc.d/init.d/mysqld
 
-
-#setting up tomcat at $TOMCAT_INSTALL_DIR/
-if [ $TOMCAT_NAME == apache-tomcat-6.0.29 ];then
-rm -f $TOMCAT_INSTALL_DIR/apache-tomcat-6.0.29.tar.gz
-mv /%{name}/apache-tomcat-6.0.29.tar.gz $TOMCAT_INSTALL_DIR/.
-fi
-
-unzip /%{name}/service.zip -d /%{name}/
-rm -f /%{name}/service.zip
-
-#mv $TOMCAT_INSTALL_DIR/$TOMCAT_NAME $TOMCAT_INSTALL_DIR/apache-tomcat-old
-if [ $TOMCAT_NAME == apache-tomcat-6.0.29 ];then
-rm -rf $TOMCAT_INSTALL_DIR/$TOMCAT_NAME
-tar -zxf $TOMCAT_INSTALL_DIR/apache-tomcat-6.0.29.tar.gz -C $TOMCAT_INSTALL_DIR/
-fi
-
-rm -rf $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/service
-mv -f /%{name}/service $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/service
-#rm -rf $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/Certificate
-#mkdir $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/Certificate
-rm -rf /var/lib/oat-appraiser/Certificate
-mkdir /var/lib/oat-appraiser/Certificate
-
-rm -R -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/*
+rm -R -f %_TOMCAT/webapps/*
 
 #chkconfig --del NetworkManager
 chkconfig network on
@@ -152,65 +127,28 @@ service httpd start
 chkconfig mysqld on
 service mysqld start
 
-#running OAT database full setup
-#rm -rf /%{name}/MySQLdrop.txt
-#unzip /%{name}/MySQLdrop.zip -d /%{name}/
-#mysql -u root < /%{name}/MySQLdrop.txt
-rm -rf /%{name}/OAT_Server_Install
-unzip /%{name}/OAT_Server_Install.zip -d /%{name}/
-rm -rf /tmp/OAT_Server_Install
-mv -f /%{name}/OAT_Server_Install /tmp/OAT_Server_Install
 mysql -u root --execute="DROP DATABASE IF EXISTS oat_db;"
 mysql -u root < /tmp/OAT_Server_Install/oat_db.MySQL
 mysql -u root < /tmp/OAT_Server_Install/init.sql
 #setting up access control in tomcat context.xml
-sed -i "/<\/Context>/i\\   <Resource name=\"jdbc\/oat\" auth=\"Container\" type=\"javax.sql.DataSource\"\n    username=\"oatAppraiser\" password=\"$randpass3\" driverClassName=\"com.mysql.jdbc.Driver\"\n    url=\"jdbc:mysql:\/\/localhost:3306\/oat_db\"\/>" $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/conf/context.xml
+sed -i "/<\/Context>/i\\   <Resource name=\"jdbc\/oat\" auth=\"Container\" type=\"javax.sql.DataSource\"\n    username=\"oatAppraiser\" password=\"$randpass3\" driverClassName=\"com.mysql.jdbc.Driver\"\n    url=\"jdbc:mysql:\/\/localhost:3306\/oat_db\"\/>" %_TOMCAT/conf/context.xml
 
 #setting up port 8443 in tomcat server.xml
-sed -i "s/ <\/Service>/<Connector port=\"8443\" minSpareThreads=\"5\" maxSpareThreads=\"75\" enableLookups=\"false\" disableUploadTimeout=\"true\" acceptCount=\"100\" maxThreads=\"200\" scheme=\"https\" secure=\"true\" SSLEnabled=\"true\" clientAuth=\"want\" sslProtocol=\"TLS\" ciphers=\"TLS_ECDH_anon_WITH_AES_256_CBC_SHA, TLS_ECDH_anon_WITH_AES_128_CBC_SHA, TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, TLS_ECDH_RSA_WITH_AES_256_CBC_SHA, TLS_ECDH_RSA_WITH_AES_128_CBC_SHA, TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA, TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA, TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA, TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA, TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA, TLS_DHE_RSA_WITH_AES_256_CBC_SHA, TLS_DHE_DSS_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_AES_256_CBC_SHA, TLS_DHE_RSA_WITH_AES_128_CBC_SHA, TLS_DHE_DSS_WITH_AES_128_CBC_SHA, TLS_RSA_WITH_AES_128_CBC_SHA\" keystoreFile=\"\/var\/lib\/oat-appraiser\/Certificate\/keystore.jks\" keystorePass=\"$p12pass\" truststoreFile=\"\/var\/lib\/oat-appraiser\/Certificate\/TrustStore.jks\" truststorePass=\"password\" \/><\/Service>/g" $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/conf/server.xml
+sed -i "s/ <\/Service>/<Connector port=\"8443\" minSpareThreads=\"5\" maxSpareThreads=\"75\" enableLookups=\"false\" disableUploadTimeout=\"true\" acceptCount=\"100\" maxThreads=\"200\" scheme=\"https\" secure=\"true\" SSLEnabled=\"true\" clientAuth=\"want\" sslProtocol=\"TLS\" ciphers=\"TLS_ECDH_anon_WITH_AES_256_CBC_SHA, TLS_ECDH_anon_WITH_AES_128_CBC_SHA, TLS_ECDH_anon_WITH_3DES_EDE_CBC_SHA, TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA, TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_RSA_WITH_3DES_EDE_CBC_SHA, TLS_ECDH_RSA_WITH_AES_256_CBC_SHA, TLS_ECDH_RSA_WITH_AES_128_CBC_SHA, TLS_ECDH_RSA_WITH_3DES_EDE_CBC_SHA, TLS_ECDHE_ECDSA_WITH_AES_256_CBC_SHA, TLS_ECDHE_ECDSA_WITH_AES_128_CBC_SHA, TLS_ECDHE_ECDSA_WITH_3DES_EDE_CBC_SHA, TLS_ECDH_ECDSA_WITH_AES_256_CBC_SHA, TLS_ECDH_ECDSA_WITH_AES_128_CBC_SHA, TLS_ECDH_ECDSA_WITH_3DES_EDE_CBC_SHA, TLS_DHE_RSA_WITH_AES_256_CBC_SHA, TLS_DHE_DSS_WITH_AES_256_CBC_SHA, TLS_RSA_WITH_AES_256_CBC_SHA, TLS_DHE_RSA_WITH_AES_128_CBC_SHA, TLS_DHE_DSS_WITH_AES_128_CBC_SHA, TLS_RSA_WITH_AES_128_CBC_SHA\" keystoreFile=\"\/var\/lib\/oat-appraiser\/Certificate\/keystore.jks\" keystorePass=\"$p12pass\" truststoreFile=\"\/var\/lib\/oat-appraiser\/Certificate\/TrustStore.jks\" truststorePass=\"password\" \/><\/Service>/g" %_TOMCAT/conf/server.xml
 
 
 
-cp -R /tmp/OAT_Server_Install/HisWebServices $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/
-#
-#if [ -e $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationAdminConsole.war ];then
-#  rm -rf $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationAdminConsole.war
-#fi
-#
-#if [ -e $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationManifestWebServices.war ];then
-#  rm -rf $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationManifestWebServices.war
-#fi
-#
-#if [ -e $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationWebServices.war ];then
-#  rm -rf $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationWebServices.war
-#fi
 
-cp  /tmp/OAT_Server_Install/OpenAttestationAdminConsole.war $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/
-cp  /tmp/OAT_Server_Install/OpenAttestationManifestWebServices.war $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/
-cp  /tmp/OAT_Server_Install/OpenAttestationWebServices.war $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/
-
-unzip $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationAdminConsole.war -d $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationAdminConsole
-unzip $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationManifestWebServices.war -d $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationManifestWebServices
-unzip $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationWebServices.war -d $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationWebServices
-#delete the OpenAttestation war package
-rm -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationAdminConsole.war
-rm -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationManifestWebServices.war
-rm -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationWebServices.war
-
- echo "$TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationAdminConsole/WEB-INF/classes/manifest.properties has updated"
-mkdir -p /etc/oat-appraiser/
-mv $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationWebServices/WEB-INF/classes/OpenAttestation.properties /etc/oat-appraiser/OpenAttestationWebServices.properties
-mv $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationAdminConsole/WEB-INF/classes/manifest.properties /etc/oat-appraiser/manifest.properties
-mv $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/OpenAttestationAdminConsole/WEB-INF/classes/OpenAttestation.properties /etc/oat-appraiser/OpenAttestationAdminConsole.properties
+ echo "%_TOMCAT/webapps/OpenAttestationAdminConsole/WEB-INF/classes/manifest.properties has updated"
  sed -i "s/<server.domain>/$(hostname)/g" /etc/oat-appraiser/OpenAttestationAdminConsole.properties
  sed -i "s/<server.domain>/$(hostname)/g" /etc/oat-appraiser/manifest.properties
 #configuring hibernateHis for OAT appraiser setup
 cp /tmp/OAT_Server_Install/hibernateOat.cfg.xml /tmp/
 sed -i 's/<property name="connection.username">root<\/property>/<property name="connection.username">oatAppraiser<\/property>/' /tmp/hibernateOat.cfg.xml
 sed -i "s/<property name=\"connection.password\">oat-password<\/property>/<property name=\"connection.password\">$randpass3<\/property>/" /tmp/hibernateOat.cfg.xml
-cp /tmp/hibernateOat.cfg.xml $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisWebServices/WEB-INF/classes/
+cp /tmp/hibernateOat.cfg.xml %_TOMCAT/webapps/HisWebServices/WEB-INF/classes/
 cp /tmp/OAT_Server_Install/OAT.properties /etc/oat-appraiser/ 
-mv $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisWebServices/WEB-INF/classes/OpenAttestation.properties /etc/oat-appraiser/
+mv %_TOMCAT/webapps/HisWebServices/WEB-INF/classes/OpenAttestation.properties /etc/oat-appraiser/
 sed -i "s/<server.domain>/$(hostname)/g" /etc/oat-appraiser/OpenAttestation.properties
 sed -i "s/^TrustStore.*$/TrustStore=\/var\/lib\/oat-appraiser\/Certificate\/TrustStore.jks/g" /etc/oat-appraiser/OpenAttestationAdminConsole.properties
 
@@ -218,11 +156,6 @@ sed -i "s/^truststore_path.*$/truststore_path=\/var\/lib\/oat-appraiser\/Certifi
 sed -i "s/^truststore_path.*$/truststore_path=\/var\/lib\/oat-appraiser\/Certificate\/TrustStore.jks/g" /etc/oat-appraiser/OpenAttestation.properties
 
 sed -i "s/^TrustStore.*$/TrustStore=\/var\/lib\/oat-appraiser\/Certificate\/TrustStore.jks/g"  /etc/oat-appraiser/OpenAttestation.properties
-#placing OAT web portal in correct folder to be seen by tomcat6
-rm -rf /%{name}/OAT
-unzip /%{name}/OAT.zip -d /%{name}/
-rm -rf /var/www/html/OAT
-mv -f /%{name}/OAT /var/www/html/OAT
 
 #setting all files in the OAT portal to be compiant to selinux
 /sbin/restorecon -R '/var/www/html/OAT'
@@ -269,14 +202,7 @@ keytool -changealias -alias ${myalias#*:} -destalias tomcat -v -keystore $keysto
 rm -f $truststore
 keytool -import -keystore $truststore -storepass password -file hostname.cer -noprompt
 
-#sets up the tomcat6 service
-chmod -R 755 $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/service/*
-cp $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/service/tomcat6 /etc/rc.d/init.d/
-sed -i  "s/killproc \$PROC/daemon \$CATALINA_BIN stop/g" /etc/rc.d/init.d/tomcat6
-chkconfig tomcat6 --add
-chkconfig tomcat6 on
-
-rm -rf $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2.war
+rm -rf %_TOMCAT/webapps/HisPrivacyCAWebServices2.war
 
 # TOAT IS THE BEGINNING OF THE PCA PORTION
 #rm -rf /%{name}/OAT_PrivacyCA_Install
@@ -289,7 +215,7 @@ sleep 10
 #catalina.sh 
 sed -i "/^#CATALINA_BIN/d" /etc/init.d/tomcat6
 sed -i "s/^CATALINA_BIN/#CATALINA_BIN/g" /etc/init.d/tomcat6
-sed -i "/^#CATALINA_BIN/i\\CATALINA_BIN=\'$TOMCAT_INSTALL_DIR/$TOMCAT_NAME/bin/catalina.sh 1> /dev/null\';" /etc/init.d/tomcat6
+sed -i "/^#CATALINA_BIN/i\\CATALINA_BIN=\'%_TOMCAT/bin/catalina.sh 1> /dev/null\';" /etc/init.d/tomcat6
 
 service tomcat6 start
 
@@ -315,10 +241,6 @@ do
 
 done
 
-#moves the war file to webapps folder to unpack it
-rm -rf $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2.war
-cp /%{name}/HisPrivacyCAWebServices2.war $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/ 
-
 
 # This for loop makes the rpm wait until the .war file has unpacked before attempting to access the files that will be created
 for((i = 1; i < 60; i++))
@@ -326,7 +248,7 @@ do
 
         rm -f ./warLog
 	if [ -e /var/lib/oat-appraiser -a -e /var/lib/oat-appraiser/ClientFiles/OATprovisioner.properties ]; then
-#        if [ -e $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2 -a -e $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/OATprovisioner.properties ]; then
+#        if [ -e %_TOMCAT/webapps/HisPrivacyCAWebServices2 -a -e %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/OATprovisioner.properties ]; then
           
 
         echo the Privacy CA was unpacked!
@@ -348,13 +270,13 @@ cur_dir=$(pwd)
 unzip /%{name}/clientInstallRefresh.zip -d /%{name}/
 unzip /%{name}/linuxClientInstallRefresh.zip -d /%{name}/
 cd /%{name}/
-sed -i "s/\/usr\/lib\/apache-tomcat-6.0.29/$TOMCAT_DIR_COFNIG_TYPE\/$TOMCAT_NAME/g" clientInstallRefresh.sh
-sed -i "s/\/usr\/lib\/apache-tomcat-6.0.29/$TOMCAT_DIR_COFNIG_TYPE\/$TOMCAT_NAME/g" linuxClientInstallRefresh.sh
+sed -i "s/\/usr\/lib\/apache-tomcat-6.0.29/%_TOMCAT_DIR_COFNIG_TYPE\/%_TOMCAT_NAME/g" clientInstallRefresh.sh
+sed -i "s/\/usr\/lib\/apache-tomcat-6.0.29/%_TOMCAT_DIR_COFNIG_TYPE\/%_TOMCAT_NAME/g" linuxClientInstallRefresh.sh
 
-mv $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/lib /var/lib/oat-appraiser/ClientFiles/
-mv $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/TPMModule.properties /var/lib/oat-appraiser/ClientFiles/
-rm -rf $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/
-rm -rf $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/CaCerts
+mv %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/lib /var/lib/oat-appraiser/ClientFiles/
+mv %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/TPMModule.properties /var/lib/oat-appraiser/ClientFiles/
+rm -rf %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/
+rm -rf %_TOMCAT/webapps/HisPrivacyCAWebServices2/CaCerts
 rm -rf clientInstallRefresh.zip
 rm -rf linuxClientInstallRefresh.zip
 
@@ -379,19 +301,19 @@ sleep 5
 #This code grabs all of the needed files from the privacy CA folder and packages them into a Client Installation folder
 #cp -r -f /%{name}/installers /%{name}/ClientInstall
 
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/endorsement.p12 /%{name}/ClientInstall/installers/hisInstall/
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/lib /%{name}/ClientInstall/installers/hisInstall/
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/TPMModule.properties /%{name}/ClientInstall/installers/hisInstall/
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/exe /%{name}/ClientInstall/installers/hisInstall/
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/PrivacyCA.cer /%{name}/ClientInstall/installers/hisInstall/
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/TrustStore.jks /%{name}/ClientInstall/installers/hisInstall/
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/OATprovisioner.properties /%{name}/ClientInstall/installers/hisInstall/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/endorsement.p12 /%{name}/ClientInstall/installers/hisInstall/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/lib /%{name}/ClientInstall/installers/hisInstall/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/TPMModule.properties /%{name}/ClientInstall/installers/hisInstall/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/exe /%{name}/ClientInstall/installers/hisInstall/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/PrivacyCA.cer /%{name}/ClientInstall/installers/hisInstall/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/TrustStore.jks /%{name}/ClientInstall/installers/hisInstall/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/OATprovisioner.properties /%{name}/ClientInstall/installers/hisInstall/
 ##DWC added two following lines for Chris
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/install.bat /%{name}/ClientInstall/installers/hisInstall/
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/OAT.properties /%{name}/ClientInstall/installers/hisInstall/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/install.bat /%{name}/ClientInstall/installers/hisInstall/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/OAT.properties /%{name}/ClientInstall/installers/hisInstall/
 #
 ##privacy.jar for windows
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/lib/PrivacyCA.jar /%{name}/ClientInstall/installers/hisInstall/lib
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/lib/PrivacyCA.jar /%{name}/ClientInstall/installers/hisInstall/lib
 
 
 #cd /%{name}/; zip -9 -r ClientInstall.zip ClientInstall
@@ -408,16 +330,16 @@ rm -rf /%{name}/ClientInstallForLinux
 
 cp -r -f /%{name}/linuxOatInstall /%{name}/ClientInstallForLinux
 
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/endorsement.p12 /%{name}/ClientInstallForLinux/
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/PrivacyCA.cer /%{name}/ClientInstallForLinux/
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/TrustStore.jks /%{name}/ClientInstallForLinux/
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/OATprovisioner.properties /%{name}/ClientInstallForLinux/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/endorsement.p12 /%{name}/ClientInstallForLinux/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/PrivacyCA.cer /%{name}/ClientInstallForLinux/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/TrustStore.jks /%{name}/ClientInstallForLinux/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/OATprovisioner.properties /%{name}/ClientInstallForLinux/
 cp -r -f /var/lib/oat-appraiser/ClientFiles/PrivacyCA.cer /%{name}/ClientInstallForLinux/
 cp -r -f /var/lib/oat-appraiser/ClientFiles/TrustStore.jks /%{name}/ClientInstallForLinux/
 cp -r -f /var/lib/oat-appraiser/ClientFiles/OATprovisioner.properties /%{name}/ClientInstallForLinux/
 cp -r -f /var/lib/oat-appraiser/ClientFiles/OAT.properties /%{name}/ClientInstallForLinux/
 sed -i '/ClientPath/s/C:.*/\/OAT/' /%{name}/ClientInstallForLinux/OATprovisioner.properties
-#cp -r -f $TOMCAT_INSTALL_DIR/$TOMCAT_NAME/webapps/HisPrivacyCAWebServices2/ClientFiles/OAT.properties /%{name}/ClientInstallForLinux/
+#cp -r -f %_TOMCAT/webapps/HisPrivacyCAWebServices2/ClientFiles/OAT.properties /%{name}/ClientInstallForLinux/
 sed -i 's/NIARL_TPM_Module\.exe/NIARL_TPM_Module/g' /%{name}/ClientInstallForLinux/OAT.properties
 sed -i 's/HIS07\.jpg/OAT07\.jpg/g' /%{name}/ClientInstallForLinux/OAT.properties
 cd /%{name}/; zip -9 -r ClientInstallForLinux.zip ClientInstallForLinux
@@ -432,14 +354,14 @@ cp -f /%{name}/ClientInstallForLinux.zip /var/www/html/
 
 
 #creates the web page that allows access for the download of the client files folder
-echo "<html>" >> /var/www/html/ClientInstaller.html
-echo "<body>" >> /var/www/html/ClientInstaller.html
-#echo "<h1><a href=\"ClientInstall.zip\">Client Installation Files</a
-#></h1>" >> /var/www/html/ClientInstaller.html
-echo "<h1><a href=\"ClientInstallForLinux.zip\">Client Installation Files For Linux</a
-></h1>" >> /var/www/html/ClientInstaller.html
-echo "</body>" >> /var/www/html/ClientInstaller.html
-echo "</html>" >> /var/www/html/ClientInstaller.html
+cat << 'EOF' > /var/www/html/ClientInstaller.html
+<html>
+<body>
+<h1><a href="ClientInstallForLinux.zip">Client Installation Files For Linux</a></h1>
+</body>
+</html>
+EOF
+
 
 chmod 755 /var/www/html/Client*
 
@@ -465,23 +387,23 @@ printf "done\n"
 TOMCAT_INSTALL_DIR2=/usr/lib
 TOMCAT_NAME2=apache-tomcat-6.0.29
 
-if [ $TOMCAT_DIR -a  -d $TOMCAT_DIR ];then
+if [ %_TOMCAT_DIR -a  -d %_TOMCAT_DIR ];then
   if [[ ${TOMCAT_DIR:$((${#TOMCAT_DIR}-1)):1} == / ]];then
     TOMCAT_DIR_TMP=${TOMCAT_DIR:0:$((${#TOMCAT_DIR}-1))}
   else
-    TOMCAT_DIR_TMP=$TOMCAT_DIR
+    TOMCAT_DIR_TMP=%_TOMCAT_DIR
   fi
 
   TOMCAT_INSTALL_DIR2=${TOMCAT_DIR_TMP%/*}
   TOMCAT_NAME2=${TOMCAT_DIR_TMP##*/}
 fi
 
-sed -i "/<\/Service>/d" $TOMCAT_INSTALL_DIR2/$TOMCAT_NAME2/conf/server.xml
-sed -i "/<\/Server>/i\\  <\/Service>"  $TOMCAT_INSTALL_DIR2/$TOMCAT_NAME2/conf/server.xml
+sed -i "/<\/Service>/d" %_TOMCAT_INSTALL_DIR2/%_TOMCAT_NAME2/conf/server.xml
+sed -i "/<\/Server>/i\\  <\/Service>"  %_TOMCAT_INSTALL_DIR2/%_TOMCAT_NAME2/conf/server.xml
 rm -rf /%{name}/
 #remove apache-tomcat
-if [ $TOMCAT_NAME2 == apache-tomcat-6.0.29 ];then
-rm -f -r $TOMCAT_INSTALL_DIR/apache-tomcat-6.0.29.tar.gz
+if [ %_TOMCAT_NAME2 == apache-tomcat-6.0.29 ];then
+rm -f -r %_TOMCAT_INSTALL_DIR/apache-tomcat-6.0.29.tar.gz
 fi
 
 #OAT_Server
@@ -518,15 +440,14 @@ rm -rf $RPM_BUILD_ROOT
 
 
 %files OATapp
-/%{name}/apache-tomcat-6.0.29.tar.gz
-/%{name}/clientInstallRefresh.zip
-/%{name}/linuxClientInstallRefresh.zip
-#/%{name}/ClientInstall.zip
-/%{name}/ClientInstallForLinux.zip
-#/%{name}/OAT_PrivacyCA_Install.zip
-/%{name}/HisPrivacyCAWebServices2.war
-/%{name}/OAT_Server_Install.zip
-/%{name}/oatSetup.zip
-/%{name}/OAT.zip
-/%{name}/MySQLdrop.zip
-/%{name}/service.zip
+%config /etc/oat-appraiser/
+/var/www/html/OAT
+/var/lib/oat-appraiser/CaCerts
+/var/lib/oat-appraiser/ClientFiles
+
+# uses %_TOMCAT but not sure how to make it work here
+/usr/share/tomcat6/webapps/OpenAttestationAdminConsole
+/usr/share/tomcat6/webapps/OpenAttestationManifestWebServices
+/usr/share/tomcat6/webapps/OpenAttestationWebServices
+/usr/share/tomcat6/webapps/HisWebServices
+/usr/share/tomcat6/webapps/HisPrivacyCAWebServices2

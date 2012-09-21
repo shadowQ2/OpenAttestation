@@ -38,26 +38,11 @@ CreateRPMdirectory()
 }
 
 #Install HIS-Appraiser-Base.tar.gz
-InstallOatAppraiserBase()
+TarOatAppraiserBase()
 {
   if test -d ./OAT-Appraiser-Base;then
-    cd ./OAT-Appraiser-Base
-    zip -9 clientInstallRefresh.zip clientInstallRefresh.sh
-    rm -f clientInstallRefresh.sh
-    zip -9 linuxClientInstallRefresh.zip linuxClientInstallRefresh.sh
-    rm -f linuxClientInstallRefresh.sh
-    zip -9 MySQLdrop.zip MySQLdrop.txt
-    rm -f MySQLdrop.txt
-    chmod 755 MySQLdrop.zip
-    zip -9 -r OAT_Server_Install.zip OAT_Server_Install/
-    rm -rf OAT_Server_Install/
-    zip -9 oatSetup.zip oatSetup.txt
-    rm -f oatSetup.txt
-    zip -9 -r service.zip service/
-    rm -rf service/
-    cd ../
+    rm OAT-Appraiser-Base.tar.gz
     tar -czvf OAT-Appraiser-Base.tar.gz ./OAT-Appraiser-Base/
-    rm -rf ./OAT-Appraiser-Base/
   fi
 
   if test -e ./OAT-Appraiser-Base.tar.gz;then
@@ -545,7 +530,7 @@ echo "EC_SIGNING_KEY_SIZE=$4"
 
 Build_xml
 CreateRPMdirectory
-InstallOatAppraiserBase
+TarOatAppraiserBase
 CreatNiarlOatStandalone
 LinuxOatInstall
 RePkgInstallOatAppraiserBase
